@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev
+
+      - name: Build
+        run: gcc App.c -o habit-tracker $(pkg-config --cflags --libs gtk+-3.0)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: habit-tracker-linux
+          path: habit-tracker
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install pkg-config gtk+3
+
+      - name: Build
+        run: gcc App.c -o habit-tracker $(pkg-config --cflags --libs gtk+-3.0)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: habit-tracker-macos
+          path: habit-tracker
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-pkgconf
+
+      - name: Build
+        shell: msys2 {0}
+        run: gcc App.c -o habit-tracker.exe $(pkg-config --cflags --libs gtk+-3.0)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: habit-tracker-windows
+          path: habit-tracker.exe

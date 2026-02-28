@@ -1,0 +1,108 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-and-package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: habit-tracker-linux-x64
+            exe_name: habit-tracker
+            archive_name: habit-tracker-linux-x64.tar.gz
+          - os: macos-latest
+            artifact_name: habit-tracker-macos-x64
+            exe_name: habit-tracker
+            archive_name: habit-tracker-macos-x64.tar.gz
+          - os: windows-latest
+            artifact_name: habit-tracker-windows-x64
+            exe_name: habit-tracker.exe
+            archive_name: habit-tracker-windows-x64.zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev zip
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install pkg-config gtk+3
+
+      - name: Setup MSYS2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-pkgconf
+
+      - name: Build Linux/macOS
+        if: runner.os != 'Windows'
+        run: gcc App.c -o habit-tracker $(pkg-config --cflags --libs gtk+-3.0)
+
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: gcc App.c -o habit-tracker.exe $(pkg-config --cflags --libs gtk+-3.0)
+
+      - name: Package Linux/macOS
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p package/${{ matrix.artifact_name }}
+          cp ${{ matrix.exe_name }} package/${{ matrix.artifact_name }}/
+          cp README.md package/${{ matrix.artifact_name }}/
+          tar -czf ${{ matrix.archive_name }} -C package ${{ matrix.artifact_name }}
+
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          set -e
+          mkdir -p package/${{ matrix.artifact_name }}
+          cp habit-tracker.exe package/${{ matrix.artifact_name }}/
+          cp README.md package/${{ matrix.artifact_name }}/
+
+          ldd habit-tracker.exe | awk '{if ($3 ~ /mingw64\/bin\/.*\.dll$/) print $3}' | sort -u > dlls.txt
+          while IFS= read -r dll; do
+            cp "$dll" package/${{ matrix.artifact_name }}/
+          done < dlls.txt
+
+          if [ -d /mingw64/share/glib-2.0/schemas ]; then
+            mkdir -p package/${{ matrix.artifact_name }}/share/glib-2.0
+            cp -r /mingw64/share/glib-2.0/schemas package/${{ matrix.artifact_name }}/share/glib-2.0/
+          fi
+
+      - name: Create zip on Windows
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path package\${{ matrix.artifact_name }} -DestinationPath ${{ matrix.archive_name }}
+        shell: pwsh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.archive_name }}
+
+      - name: Upload assets to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive_name }}
