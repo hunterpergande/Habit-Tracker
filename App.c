@@ -6,6 +6,10 @@
 #include <errno.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
 #define MAX_DAY_COUNT 80
 #define DEFAULT_DAY_COUNT 60
 #define ITEM_COUNT 10
@@ -144,8 +148,16 @@ static gboolean write_atomic_binary(const char *file_path, const void *data, siz
 
     if (ok && fflush(f) != 0)
         ok = FALSE;
-    if (ok && fsync(fileno(f)) != 0)
+    int file_descriptor;
+#ifdef _WIN32
+    file_descriptor = _fileno(f);
+    if (ok && _commit(file_descriptor) != 0)
         ok = FALSE;
+#else
+    file_descriptor = fileno(f);
+    if (ok && fsync(file_descriptor) != 0)
+        ok = FALSE;
+#endif
     if (fclose(f) != 0)
         ok = FALSE;
 
