@@ -1,0 +1,9 @@
+# Build outputs
+habit-tracker
+app
+tracker
+*.o
+*.out
+
+# Editor settings
+.vscode/
