@@ -37,4 +37,5 @@ gcc App.c -o habit-tracker $(pkg-config --cflags --libs gtk+-3.0)
 ## Project Files
 
 - `App.c` — main application source
-- `settings.dat` / `states.dat` — local app data created/used at runtime
+- `settings.dat` / `states.dat` / `habits.dat` — local app data created at runtime
+- `stats_export.txt` — optional export file created when stats are exported

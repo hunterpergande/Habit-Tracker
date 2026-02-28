@@ -5,5 +5,11 @@ tracker
 *.o
 *.out
 
+# Runtime data/exports
+settings.dat
+states.dat
+habits.dat
+stats_export.txt
+
 # Editor settings
 .vscode/
